@@ -1,0 +1,2 @@
+# KangarooShell
+Simple shell interface
