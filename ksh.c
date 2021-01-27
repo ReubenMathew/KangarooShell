@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #define MAX_TOKEN_SIZE 128
 #define DELIMETERS " "
@@ -88,7 +89,8 @@ int run_command(char **args)
 
     if (pid == 0)
     {
-        if (execvp(args[0], args) < 1) return 1;
+        if (execvp(args[0], args) < 1)
+            return 1;
     }
     else if (pid < 0)
     {
@@ -99,11 +101,14 @@ int run_command(char **args)
     {
         if (mode)
         {
-            while (wait(&status) != pid);
+            while (wait(&status) != pid)
+                ;
         }
         else
         {
             printf("[%d]: %s\n", pid, args[0]);
+            int devNull = open("/dev/null", O_WRONLY);
+            int dup2Result = dup2(devNull, STDOUT_FILENO);
         }
     }
 
