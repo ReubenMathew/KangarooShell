@@ -86,9 +86,28 @@ int run_command(char **args)
 {
     pid_t pid = fork();
     int status;
+    int devNull, out2devNull, err2devNull;
 
     if (pid == 0)
     {
+        // Send output to /dev/null for background processes
+        if (!mode)
+        {
+            devNull = open("/dev/null", O_WRONLY);
+            if (devNull == -1)
+            {
+                fputs("Error Opening: /dev/null\n", stdout);
+                exit(EXIT_FAILURE);
+            }
+            out2devNull = dup2(devNull, STDOUT_FILENO);
+            err2devNull = dup2(devNull, STDERR_FILENO);
+            if (out2devNull == -1 || err2devNull == -1){
+                fputs("Error Reassigning: STDOUT/STDERR\n",stdout);
+                exit(EXIT_FAILURE);
+            }
+            
+        }
+        // Execute command with arguments
         if (execvp(args[0], args) < 1)
             return 1;
     }
@@ -107,8 +126,6 @@ int run_command(char **args)
         else
         {
             printf("[%d]: %s\n", pid, args[0]);
-            int devNull = open("/dev/null", O_WRONLY);
-            int dup2Result = dup2(devNull, STDOUT_FILENO);
         }
     }
 
