@@ -27,11 +27,20 @@ char *read_input(void)
     return input;
 }
 
-void clean_exit(int status)
+void ksh_exit(int status)
 {
     free(history_args);
     fputs("Closing Shell... Goodbye\n", stdout);
     exit(status);
+}
+
+int ksh_cd(char *path)
+{
+    if (chdir(path) == -1)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 char **split_line(char *input)
@@ -91,18 +100,14 @@ void backgroundCheck(char *cmd_line)
     // printf("Mode: %d\n", mode);
 }
 
-int run_command(char **args)
+void update_history(char **args)
 {
-    pid_t pid = fork();
-    int status;
-    int devNull, out2devNull, err2devNull;
-
     // Add command arguments to history
     /*                              */
     if (history_args)
     {
-        // print_args_debug(history_args);
-        // print_args_debug(args);
+        print_args_debug(history_args);
+        print_args_debug(args);
     }
     else
     {
@@ -111,14 +116,29 @@ int run_command(char **args)
     }
 
     // history_args = args
-    for (int i = 0; args[i] != NULL; i++)
+    int i;
+    for (i = 0; args[i] != NULL; i++)
     {
+        char *new_arg = malloc(strlen(args[i]));
+        memcpy(new_arg, args[i], strlen(args[i]));
         if (history_args[i] == NULL)
         {
-            history_args[i] = malloc(strlen(args[i]));
+            free(history_args[i]);
         }
-        memcpy(history_args[i], args[i], strlen(args[i]));
+        history_args[i] = malloc(strlen(args[i]));
+        memcpy(history_args[i], new_arg, strlen(new_arg));
+        free(new_arg);
     }
+    history_args[i] = '\0';
+}
+
+int run_command(char **args)
+{
+    pid_t pid = fork();
+    int status;
+    int devNull, out2devNull, err2devNull;
+
+    update_history(args);
 
     if (pid == 0)
     {
@@ -138,6 +158,16 @@ int run_command(char **args)
                 fputs("Error Reassigning: STDOUT/STDERR\n", stdout);
                 exit(EXIT_FAILURE);
             }
+        }
+
+        // Change Directory
+        if (!strcmp(args[0], "cd"))
+        {
+            // error handling for chdir()
+            if (ksh_cd(args[1]) < 0)
+                fputs("No such file or directory\n", stdout);
+
+            return 1;
         }
         // Execute command with arguments
         if (execvp(args[0], args) < 1)
@@ -181,7 +211,7 @@ int execute_args(char **args)
         }
         else
         {
-            // print_args(history_args);
+            print_history_args(history_args);
             return run_command(history_args);
         }
     }
@@ -215,7 +245,7 @@ int main(void)
 
     } while (should_run);
 
-    clean_exit(EXIT_SUCCESS);
+    ksh_exit(EXIT_SUCCESS);
 
     return 0;
 }
