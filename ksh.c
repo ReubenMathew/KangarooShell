@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-#define MAX_TOKENS 80
+#define MAX_TOKENS 40
 #define MAX_TOKEN_SIZE 128
 #define DELIMETERS " "
 #define BACKGROUND 0;
