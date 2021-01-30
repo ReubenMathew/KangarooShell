@@ -9,8 +9,8 @@
 #define MAX_TOKENS 40
 #define MAX_TOKEN_SIZE 128
 #define DELIMETERS " "
-#define BACKGROUND 0;
-#define FOREGROUND 1;
+#define BACKGROUND 0
+#define FOREGROUND 1
 
 int mode = FOREGROUND;
 char **history_args;
@@ -104,12 +104,8 @@ void update_history(char **args)
 {
     // Add command arguments to history
     /*                              */
-    if (history_args)
-    {
-        print_args_debug(history_args);
-        print_args_debug(args);
-    }
-    else
+
+    if (!history_args)
     {
         // Initialize history_args
         history_args = malloc(MAX_TOKENS * sizeof(char *));
@@ -136,27 +132,18 @@ int run_command(char **args)
 {
     pid_t pid = fork();
     int status;
-    int devNull, out2devNull, err2devNull;
+    // int devNull, out2devNull, err2devNull;
 
     update_history(args);
 
     if (pid == 0)
     {
-        // Send output to /dev/null for background processes
-        if (!mode)
+        if (mode == BACKGROUND)
         {
-            devNull = open("/dev/null", O_WRONLY);
-            if (devNull == -1)
+            int pgid_status = setpgid(0, 0);
+            if (pgid_status == -1)
             {
-                fputs("Error Opening: /dev/null\n", stdout);
-                exit(EXIT_FAILURE);
-            }
-            out2devNull = dup2(devNull, STDOUT_FILENO);
-            err2devNull = dup2(devNull, STDERR_FILENO);
-            if (out2devNull == -1 || err2devNull == -1)
-            {
-                fputs("Error Reassigning: STDOUT/STDERR\n", stdout);
-                exit(EXIT_FAILURE);
+                perror("Error in setting child to new process group\n");
             }
         }
 
@@ -180,6 +167,11 @@ int run_command(char **args)
     }
     else
     {
+        if (history_args)
+        {
+            print_args_debug(history_args);
+            print_args_debug(args);
+        }
         if (mode)
         {
             while (wait(&status) != pid)
