@@ -15,8 +15,10 @@
 int mode = FOREGROUND;
 char **history_args;
 int out_fd;
+int in_fd;
 int std_save_out;
 int std_save_err;
+int std_save_in;
 
 char *read_input(void)
 {
@@ -141,17 +143,27 @@ int run_command(char **args)
 
     if (out_fd)
     {
-        std_save_out = dup(fileno(stdout));
-        std_save_err = dup(fileno(stderr));
+        std_save_out = dup(STDOUT_FILENO);
+        std_save_err = dup(STDERR_FILENO);
 
         if (dup2(out_fd, STDOUT_FILENO) == -1)
             perror("Error redirecting output\n");
         if (dup2(out_fd, STDERR_FILENO) == -1)
-            perror("Error redirecting output\n");
+            perror("Error redirecting error\n");
+
+        close(out_fd);
     }
 
     if (pid == 0)
     {
+        if (in_fd)
+        {
+            std_save_in = dup(STDIN_FILENO);
+
+            if (dup2(in_fd, STDIN_FILENO) == -1)
+                perror("Error redirecting input\n");
+            close(in_fd);
+        }
 
         if (mode == BACKGROUND)
         {
@@ -203,12 +215,19 @@ int run_command(char **args)
             fflush(stderr);
             close(out_fd);
 
-            dup2(std_save_out, fileno(stdout));
-            dup2(std_save_err, fileno(stderr));
+            dup2(std_save_out, STDOUT_FILENO);
+            dup2(std_save_err, STDERR_FILENO);
 
             close(std_save_out);
             close(std_save_err);
         }
+
+        // if (in_fd)
+        // {
+        //     fflush(stdin);
+        //     dup2(std_save_in, STDIN_FILENO);
+        //     close(std_save_in);
+        // }
     }
 
     return 1;
@@ -239,16 +258,32 @@ int execute_args(char **args)
     return run_command(args);
 }
 
-void outRedirectCheck(char **args)
+void outRedirect(char **args)
 {
     int i;
     for (i = 0; args[i] != NULL; i++)
     {
         if (strcmp(args[i], ">") == 0)
         {
-            printf("Character : %s\n", args[i]);
-            printf("Redirecting output\n");
-            out_fd = open(args[i + 1], O_RDWR | O_CREAT | O_APPEND, 0600);
+            // printf("Character : %s\n", args[i]);
+            // printf("Redirecting output\n");
+            out_fd = open(args[i + 1], O_RDWR | O_CREAT | O_APPEND, 0665);
+            args[i] = '\0';
+            break;
+        }
+    }
+}
+
+void inRedirect(char **args)
+{
+    int i;
+    for (i = 0; args[i] != NULL; i++)
+    {
+        if (strcmp(args[i], "<") == 0)
+        {
+            // printf("Character : %s\n", args[i]);
+            // printf("Redirecting input\n");
+            in_fd = open(args[i + 1], O_RDONLY);
             args[i] = '\0';
             break;
         }
@@ -272,14 +307,18 @@ int main(void)
         line = read_input();
         backgroundCheck(line);
         args = split_line(line);
-        outRedirectCheck(args);
-        print_args_debug(args);
+
+        outRedirect(args);
+        inRedirect(args);
+
         should_run = execute_args(args);
 
         free(line);
         free(args);
         line = NULL;
         args = NULL;
+        out_fd = NULL;
+        in_fd = NULL;
 
     } while (should_run);
 

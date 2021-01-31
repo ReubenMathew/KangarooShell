@@ -4,7 +4,7 @@ all: run
 
 run: ksh.c
 		@echo "Building and Running... $(EXECUTABLE_NAME)"
-		@gcc -g -o $(EXECUTABLE_NAME) ksh.c -W -Wall
+		@gcc -g -o $(EXECUTABLE_NAME) ksh.c -w -Wall
 		@./$(EXECUTABLE_NAME)
 
 build: ksh.c
