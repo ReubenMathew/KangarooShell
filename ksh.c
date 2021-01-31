@@ -14,6 +14,9 @@
 
 int mode = FOREGROUND;
 char **history_args;
+int out_fd;
+int std_save_out;
+int std_save_err;
 
 char *read_input(void)
 {
@@ -46,7 +49,7 @@ int ksh_cd(char *path)
 char **split_line(char *input)
 {
     char **tokens = malloc(MAX_TOKEN_SIZE * sizeof(char *));
-    char *input_copy = malloc(sizeof(input));
+    char *input_copy = malloc(sizeof(input) + 1);
 
     strcpy(input_copy, input);
     // printf("Original: %s\tCopy: %s\n", input, input_copy);
@@ -136,8 +139,20 @@ int run_command(char **args)
 
     update_history(args);
 
+    if (out_fd)
+    {
+        std_save_out = dup(fileno(stdout));
+        std_save_err = dup(fileno(stderr));
+
+        if (dup2(out_fd, STDOUT_FILENO) == -1)
+            perror("Error redirecting output\n");
+        if (dup2(out_fd, STDERR_FILENO) == -1)
+            perror("Error redirecting output\n");
+    }
+
     if (pid == 0)
     {
+
         if (mode == BACKGROUND)
         {
             int pgid_status = setpgid(0, 0);
@@ -167,12 +182,12 @@ int run_command(char **args)
     }
     else
     {
-        if (history_args)
-        {
-            print_args_debug(history_args);
-            print_args_debug(args);
-        }
-        if (mode)
+        // if (history_args)
+        // {
+        //     print_args_debug(history_args);
+        //     print_args_debug(args);
+        // }
+        if (mode == FOREGROUND)
         {
             while (wait(&status) != pid)
                 ;
@@ -180,6 +195,19 @@ int run_command(char **args)
         else
         {
             printf("Background PID for [%s]: %d\n", args[0], pid);
+        }
+
+        if (out_fd)
+        {
+            fflush(stdout);
+            fflush(stderr);
+            close(out_fd);
+
+            dup2(std_save_out, fileno(stdout));
+            dup2(std_save_err, fileno(stderr));
+
+            close(std_save_out);
+            close(std_save_err);
         }
     }
 
@@ -203,12 +231,28 @@ int execute_args(char **args)
         }
         else
         {
-            print_history_args(history_args);
+            // print_history_args(history_args);
             return run_command(history_args);
         }
     }
 
     return run_command(args);
+}
+
+void outRedirectCheck(char **args)
+{
+    int i;
+    for (i = 0; args[i] != NULL; i++)
+    {
+        if (strcmp(args[i], ">") == 0)
+        {
+            printf("Character : %s\n", args[i]);
+            printf("Redirecting output\n");
+            out_fd = open(args[i + 1], O_RDWR | O_CREAT | O_APPEND, 0600);
+            args[i] = '\0';
+            break;
+        }
+    }
 }
 
 int main(void)
@@ -228,6 +272,8 @@ int main(void)
         line = read_input();
         backgroundCheck(line);
         args = split_line(line);
+        outRedirectCheck(args);
+        print_args_debug(args);
         should_run = execute_args(args);
 
         free(line);
