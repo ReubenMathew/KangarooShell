@@ -250,7 +250,7 @@ int execute_args(char **args)
         }
         else
         {
-            // print_history_args(history_args);
+            print_history_args(history_args);
             return run_command(history_args);
         }
     }
