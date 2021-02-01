@@ -290,6 +290,72 @@ void inRedirect(char **args)
     }
 }
 
+int pipeHandler(char **args)
+{
+    int pipe_fd[2], i, status;
+    pid_t pid;
+    char **args1, **args2;
+
+    pipe(pipe_fd);
+    for (i = 0; args[i] != NULL; i++)
+    {
+        if (strcmp(args[i], "|") == 0)
+        {
+            // printf("Character : %s\n", args[i]);
+            // printf("PIPE PROCESS\n");
+
+            int j;
+            // args1
+            args1 = malloc(sizeof(args));
+            for (j = 0; j < i; j++)
+            {
+                args1[j] = args[j];
+            }
+            // printf("ARGS1:\n");
+            // print_args_debug(args1);
+            // args2
+            args2 = malloc(sizeof(args));
+            for (j = i + 1; args[j] != NULL; j++)
+            {
+                args2[j - i - 1] = args[j];
+            }
+            // printf("ARGS2:\n");
+            // print_args_debug(args2);
+
+            pid = fork();
+            if (pid == 0)
+            {
+                close(STDOUT_FILENO);
+                close(pipe_fd[0]);
+                dup2(pipe_fd[1], STDOUT_FILENO);
+                execvp(args1[0], args1);
+            }
+
+            pid = fork();
+            if (pid == 0)
+            {
+                close(STDIN_FILENO);
+                close(pipe_fd[1]);
+                dup2(pipe_fd[0], STDIN_FILENO);
+                execvp(args2[0], args2);
+            }
+
+            close(pipe_fd[0]);
+            close(pipe_fd[1]);
+
+            while (wait(&status) != pid)
+                ;
+
+            free(args1);
+            free(args2);
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int main(void)
 {
     // char *args[MAX_LINE / 2 + 1]; /* command line (of 80) has max of 40 arguments */
@@ -308,10 +374,17 @@ int main(void)
         backgroundCheck(line);
         args = split_line(line);
 
-        outRedirect(args);
-        inRedirect(args);
+        if (pipeHandler(args) == 1)
+        {
+            // printf("PIPE WAS DETECTED \n");
+        }
+        else
+        {
+            outRedirect(args);
+            inRedirect(args);
 
-        should_run = execute_args(args);
+            should_run = execute_args(args);
+        }
 
         free(line);
         free(args);

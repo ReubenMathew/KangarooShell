@@ -6,4 +6,4 @@ Simple shell interface
 - [x] Providing a history feature
 - [x] Implement `cd` functionality with `chdir()` system call
 - [x] Adding support of input and output redirection
-- [ ] Allowing the parent and child processes to communicate via a pipe
+- [x] Allowing the parent and child processes to communicate via a pipe
